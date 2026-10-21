@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dépannages EP</title>
+<meta name="description" content="Suivi des dépannages d'éclairage public">
+<meta name="theme-color" content="#16202B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+[hidden]{display:none!important}
+body{margin:0;padding-top:env(safe-area-inset-top,0px)}
+
+/* Layout: journal de terrain une colonne, jours repliables, fiche plein écran */
+html{-webkit-text-size-adjust:100%}
+:root{
+  --bg:#F3F4F6; --surface:#FFFFFF; --ink:#16202B; --muted:#5B6673; --line:#D5DAE0;
+  --accent:#C96A12; --accent-ink:#FFFFFF; --accent-soft:#FBEBDB;
+  --ok:#2E7D4F; --warn:#B7791F; --bad:#C0392B;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F151C; --surface:#18212B; --ink:#E8ECF0; --muted:#98A3AF; --line:#2A3542;
+  --accent:#F0973A; --accent-ink:#1A1206; --accent-soft:#3A2814;
+  --ok:#5CC48A; --warn:#E6B04A; --bad:#EF6F62; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F151C; --surface:#18212B; --ink:#E8ECF0; --muted:#98A3AF; --line:#2A3542;
+  --accent:#F0973A; --accent-ink:#1A1206; --accent-soft:#3A2814;
+  --ok:#5CC48A; --warn:#E6B04A; --bad:#EF6F62; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 96px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:4px 14px;border-bottom:2px solid var(--ink);margin-bottom:14px}
+h1{font-family:var(--f-display);font-weight:700;font-size:30px;line-height:1;margin:0;letter-spacing:.01em;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px;margin-top:4px}
+.count{font-family:var(--f-display);font-size:15px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.count b{color:var(--accent);font-size:22px}
+.notice{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--muted);margin-bottom:12px}
+.notice.warn{border-color:var(--warn);color:var(--ink)}
+.toolbar{display:flex;gap:8px;margin-bottom:12px}
+.search{flex:1;min-width:0;position:relative}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:12px;width:100%;min-height:48px}
+textarea{min-height:72px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+button{font:inherit;cursor:pointer;border-radius:8px;min-height:48px;padding:0 16px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.danger{color:var(--bad);border-color:var(--bad)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.list{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.num{font-family:var(--f-display);font-weight:700;font-size:22px;line-height:1.1}
+.addr{color:var(--muted);font-size:14px}
+.tr{font-family:var(--f-display);font-weight:600;font-size:16px;color:var(--accent);letter-spacing:.02em}
+.pill{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:3px 10px;border:1.5px solid currentColor;white-space:nowrap}
+.pill.bon{color:var(--ok)} .pill.surveiller{color:var(--warn)} .pill.remplacer{color:var(--bad)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;color:var(--muted)}
+.meta strong{color:var(--ink);font-weight:600}
+.coords{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.departs{display:flex;flex-direction:column;gap:4px;font-size:15px}
+.departs div{min-width:0;overflow-wrap:anywhere}
+.dlabel{font-family:var(--f-display);font-weight:700;color:var(--accent);margin-right:6px}
+mark{background:var(--accent-soft);color:var(--ink);border-radius:3px;padding:0 2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions a,.actions button{flex:1;min-width:130px}
+a.btn{display:flex;align-items:center;justify-content:center;text-decoration:none;min-height:48px;border-radius:8px;border:1.5px solid var(--line);color:var(--ink);font-weight:600;padding:0 12px}
+.empty{text-align:center;padding:32px 16px;color:var(--muted);border:1.5px dashed var(--line);border-radius:10px}
+.empty h2{font-family:var(--f-display);color:var(--ink);font-size:22px;margin:0 0 6px}
+.fab{position:fixed;left:0;right:0;bottom:0;padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(transparent,var(--bg) 35%);display:flex;justify-content:center;gap:8px;pointer-events:none}
+.fab button{pointer-events:auto;max-width:340px;flex:1;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+/* Panneau formulaire */
+.sheet{position:fixed;inset:0;background:var(--bg);overflow-y:auto;z-index:20;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.sheet .wrap{padding-block:12px 40px}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.sheet-head h2{font-family:var(--f-display);font-size:26px;margin:0}
+form{display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+label{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.hint{font-size:13px;color:var(--muted)}
+.hint.ok{color:var(--ok)} .hint.err{color:var(--bad)} .hint.warn{color:var(--warn)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:420px){.row2{grid-template-columns:1fr}}
+fieldset{border:1.5px solid var(--line);border-radius:10px;padding:12px;margin:0;display:flex;flex-direction:column;gap:10px}
+legend{font-family:var(--f-display);font-weight:700;font-size:18px;padding:0 6px}
+.dep{display:flex;gap:8px;align-items:flex-start}
+.dep .dlabel{min-width:30px;padding-top:12px}
+.dep textarea{flex:1;min-width:0;min-height:56px}
+.dep button{min-width:48px;padding:0}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{flex:1;min-width:90px;text-transform:none;letter-spacing:0;font-size:15px;color:var(--ink);border:1.5px solid var(--line);border-radius:8px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;background:var(--surface)}
+.seg input{width:auto;min-height:0;accent-color:var(--accent)}
+.seg label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.confirm{border:1.5px solid var(--bad);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;z-index:40;max-width:calc(100% - 32px)}
+.export{display:flex;flex-direction:column;gap:8px}
+.export textarea{font-family:var(--f-mono);font-size:12px;min-height:160px}
+.toolbar.wrapline{flex-wrap:wrap}
+.toolbar select{flex:1 1 100%;min-width:0}
+.group{display:flex;flex-direction:column;gap:10px}
+.ghead{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:transparent;border:0;border-bottom:1.5px solid var(--line);border-radius:0;padding:10px 2px 8px;min-height:48px;text-align:left;color:var(--ink)}
+.ghead .gname{font-family:var(--f-display);font-weight:700;font-size:21px;line-height:1.1;min-width:0;overflow-wrap:anywhere}
+.ghead .gcount{font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:8px}
+.ghead .chev{display:inline-block;font-size:16px;color:var(--accent);transition:transform .15s}
+.ghead[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.group.none .gname{color:var(--muted)}
+.groups{display:flex;flex-direction:column;gap:18px}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.ph{position:relative;aspect-ratio:1;max-width:100%;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--bg);padding:0;min-height:0}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph.busy{display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
+.ph-add{aspect-ratio:1;border:2px dashed var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;font-weight:600;font-size:14px;text-transform:none;letter-spacing:0}
+.ph-add .plus{font-size:34px;line-height:1;font-weight:400}
+.ph-add input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.ph-add:focus-within{outline:3px solid var(--accent);outline-offset:1px}
+.strip{display:flex;gap:6px;overflow-x:auto}
+.strip button{flex:0 0 64px;width:64px;height:64px;min-height:0;padding:0;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.strip img{width:100%;height:100%;object-fit:cover;display:block}
+.viewer{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.viewer .vimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.viewer img{max-width:100%;max-height:100%;object-fit:contain}
+.viewer .vbar{display:flex;gap:8px;padding:12px 16px;flex-wrap:wrap}
+.viewer .vbar button{flex:1;min-width:90px;background:#1E2730;color:#fff;border-color:#3A4552}
+.viewer .vbar button.danger{color:#FF8A7E;border-color:#FF8A7E}
+.viewer .vcount{color:#C9D1D9;text-align:center;font-size:14px;padding-top:10px}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
+.coordrow{display:flex;gap:8px;flex-wrap:wrap}
+.coordrow input{flex:1 1 200px;min-width:0}
+.coordrow button{flex:1 1 140px}
+#btnGps.busy{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.bk{display:flex;flex-direction:column;gap:10px}
+.bk h3{font-family:var(--f-display);font-size:20px;margin:8px 0 0}
+.bk .file{position:relative;display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:16px;text-transform:none;letter-spacing:0;cursor:pointer}
+.bk .file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.bk .file:focus-within{outline:3px solid var(--accent);outline-offset:1px}
+.part{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.part:first-of-type{border-top:0;padding-top:0}
+label.chk{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--ink);cursor:pointer}
+label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);margin:0}
+.partd{display:flex;flex-direction:column;gap:10px;padding-left:32px}
+.mat{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px;font-size:15px}
+.mat li{overflow-wrap:anywhere}
+.nth{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:15px;margin-right:8px;vertical-align:2px;padding:0 4px}
+.today{font-family:var(--f-body);font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin-left:6px;vertical-align:3px}
+</style>
+</head>
+<body>
+<div class="wrap" id="main">
+  <header class="top">
+    <div>
+      <h1>Dépannages EP</h1>
+      <div class="sub">Interventions éclairage public, Saint-Denis</div>
+    </div>
+    <div class="count"><b id="nb">0</b> dépannages</div>
+  </header>
+  <div class="notice" id="status" hidden></div>
+  <div class="notice warn" id="pendingNote" hidden></div>
+  <div class="toolbar wrapline">
+    <div class="search"><input id="q" type="search" placeholder="Chercher une rue, une lampe, un bon..." autocomplete="off" aria-label="Rechercher"></div>
+    <button id="btnExport" type="button">Export CSV</button>
+    <button id="btnBackup" type="button">Sauvegarde</button>
+    <select id="fr" aria-label="Filtrer par résultat">
+      <option value="">Tous les dépannages</option>
+      <option value="reprendre">À reprendre seulement</option>
+      <option value="repare">Réparés seulement</option>
+    </select>
+  </div>
+  <div class="list" id="list"></div>
+</div>
+
+<div class="fab"><button class="primary" id="btnNew" type="button">Nouveau dépannage</button></div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="wrap">
+    <div class="sheet-head">
+      <h2 id="sheetTitle">Nouveau dépannage</h2>
+      <button type="button" id="btnClose">Fermer</button>
+    </div>
+    <form id="f" novalidate>
+      <div class="row2">
+        <div class="field">
+          <label for="f_jour">Jour de l'intervention</label>
+          <input id="f_jour" type="date">
+        </div>
+        <div class="field">
+          <label for="f_support">N° du support</label>
+          <input id="f_support" autocomplete="off" placeholder="Si le poteau est numéroté">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f_coords">Position du poteau</label>
+        <div class="coordrow">
+          <input id="f_coords" inputmode="text" class="coords" placeholder="-20.8823, 55.4504">
+          <button type="button" id="btnGps">Ma position</button>
+        </div>
+        <div class="hint" id="coordHint">Touche « Ma position » au pied du poteau. L'adresse se remplit toute seule.</div>
+      </div>
+      <div class="field">
+        <label for="f_addr">Adresse du poteau</label>
+        <input id="f_addr" placeholder="Rempli automatiquement, modifiable">
+        <div class="hint" id="addrHint"></div>
+      </div>
+
+      <div class="field">
+        <span id="resLbl"><label>Réseau</label></span>
+        <div class="seg" role="radiogroup" aria-labelledby="resLbl">
+          <label><input type="radio" name="reseau" value="souterrain" checked> Souterrain</label>
+          <label><input type="radio" name="reseau" value="aerien"> Aérien</label>
+        </div>
+      </div>
+
+      <fieldset>
+        <legend>Demande</legend>
+        <div class="row2">
+          <div class="field">
+            <label for="f_origine">Origine</label>
+            <select id="f_origine">
+              <option value="">Non précisée</option>
+              <option>Appel habitant</option>
+              <option>Tournée de nuit</option>
+              <option>Demande mairie / élu</option>
+              <option>Signalement interne</option>
+              <option>Autre</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f_bon">N° de bon / demande</label>
+            <input id="f_bon" autocomplete="off" placeholder="Facultatif">
+          </div>
+        </div>
+        <div class="field">
+          <label for="f_panne">Panne constatée</label>
+          <input id="f_panne" list="panneList" autocomplete="off" placeholder="Lampe éteinte">
+          <datalist id="panneList">
+            <option value="Lampe éteinte"></option>
+            <option value="Lampe qui clignote"></option>
+            <option value="Allumée de jour"></option>
+            <option value="Plusieurs points éteints"></option>
+            <option value="Rue entière éteinte"></option>
+            <option value="Lumière faible / rosée"></option>
+            <option value="Câble endommagé"></option>
+            <option value="Mât accidenté"></option>
+            <option value="Porte de mât ouverte / arrachée"></option>
+          </datalist>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Matériel changé</legend>
+        <div class="part">
+          <label class="chk"><input type="checkbox" id="m_lampe"> Lampe</label>
+          <div class="partd" id="d_lampe" hidden>
+            <div class="row2">
+              <div class="field"><label for="m_lampe_type">Type de lampe</label>
+                <select id="m_lampe_type"><option>Sodium haute pression (SHP)</option><option>Iodures métalliques (CMH)</option><option>Mercure (ballon fluo)</option><option>Sodium basse pression (SBP)</option><option>Module LED</option><option>Fluo compacte</option><option>Autre</option></select></div>
+              <div class="field"><label for="m_lampe_w">Puissance</label>
+                <input id="m_lampe_w" list="wList" inputmode="numeric" placeholder="100 W"></div>
+            </div>
+            <div class="field"><label for="m_lampe_culot">Culot</label>
+              <select id="m_lampe_culot"><option value="">Non précisé</option><option>E27</option><option>E40</option><option>PGZ12</option><option>G12</option><option>Autre</option></select></div>
+          </div>
+        </div>
+        <div class="part">
+          <label class="chk"><input type="checkbox" id="m_ballast"> Ballast</label>
+          <div class="partd" id="d_ballast" hidden>
+            <div class="row2">
+              <div class="field"><label for="m_ballast_type">Type de ballast</label>
+                <select id="m_ballast_type"><option>Ferromagnétique</option><option>Électronique</option><option>Driver LED</option><option>Bi-puissance</option><option>Autre</option></select></div>
+              <div class="field"><label for="m_ballast_w">Puissance</label>
+                <input id="m_ballast_w" list="wList" inputmode="numeric" placeholder="100 W"></div>
+            </div>
+          </div>
+        </div>
+        <div class="part">
+          <label class="chk"><input type="checkbox" id="m_amorceur"> Amorceur</label>
+          <div class="partd" id="d_amorceur" hidden>
+            <div class="field"><label for="m_amorceur_type">Type d'amorceur</label>
+              <select id="m_amorceur_type"><option>Superposé (série)</option><option>Semi-parallèle</option><option>Parallèle</option><option>Intégré au ballast</option><option>Autre</option></select></div>
+          </div>
+        </div>
+        <div class="part">
+          <label class="chk"><input type="checkbox" id="m_boitier"> Boîtier pied de mât</label>
+          <div class="partd" id="d_boitier" hidden>
+            <div class="field"><label for="m_boitier_type">Intervention</label>
+              <select id="m_boitier_type"><option>Boîtier complet changé</option><option>Fusible seul changé</option><option>Raccordement refait</option><option>Autre</option></select></div>
+          </div>
+        </div>
+        <div class="part">
+          <label class="chk"><input type="checkbox" id="m_luminaire"> Luminaire complet</label>
+        </div>
+        <div class="part">
+          <label class="chk"><input type="checkbox" id="m_cable"> Câble / raccordement</label>
+        </div>
+        <div class="part">
+          <label class="chk"><input type="checkbox" id="m_crosse"> Crosse</label>
+        </div>
+        <div class="part">
+          <label class="chk"><input type="checkbox" id="m_autre"> Autre</label>
+          <div class="partd" id="d_autre" hidden>
+            <div class="field"><label for="m_autre_txt">Précise</label><input id="m_autre_txt" placeholder="Platine, porte de visite..."></div>
+          </div>
+        </div>
+        <datalist id="wList"><option value="35 W"></option><option value="50 W"></option><option value="70 W"></option><option value="100 W"></option><option value="150 W"></option><option value="250 W"></option><option value="400 W"></option></datalist>
+      </fieldset>
+
+      <div class="field">
+        <span id="resuLbl"><label>Résultat</label></span>
+        <div class="seg" role="radiogroup" aria-labelledby="resuLbl">
+          <label><input type="radio" name="resultat" value="repare" checked> Réparé</label>
+          <label><input type="radio" name="resultat" value="reprendre"> À reprendre</label>
+        </div>
+      </div>
+
+      <fieldset id="photoBox">
+        <legend>Photos</legend>
+        <div class="photos" id="photos"></div>
+        <div class="hint">Avant / après, plaque du luminaire... Appuie sur une photo pour l'agrandir ou la retirer.</div>
+      </fieldset>
+
+      <div class="field">
+        <label for="f_rem">Remarques</label>
+        <textarea id="f_rem" placeholder="Pièce à commander, accès difficile..."></textarea>
+      </div>
+      <div class="hint err" id="formErr" hidden></div>
+      <button class="primary" type="submit" id="btnSave">Enregistrer</button>
+      <button class="danger" type="button" id="btnDel" hidden>Supprimer ce dépannage</button>
+      <div class="confirm" id="confirmDel" hidden>
+        <div>Supprimer définitivement ce dépannage ?</div>
+        <div class="actions"><button type="button" id="delNo">Annuler</button><button type="button" class="danger" id="delYes">Supprimer</button></div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="sheet" id="exportSheet" hidden>
+  <div class="wrap">
+    <div class="sheet-head"><h2>Export CSV</h2><button type="button" id="expClose">Fermer</button></div>
+    <div class="export">
+      <div class="field">
+        <label for="expPeriod">Période</label>
+        <select id="expPeriod"></select>
+      </div>
+      <div class="hint" id="expInfo"></div>
+      <button class="primary" type="button" id="expSave">Télécharger le fichier</button>
+      <button type="button" id="expShare">Partager (Drive, e-mail...)</button>
+      <button type="button" id="expCopy">Copier le texte</button>
+      <textarea id="expText" readonly aria-label="Contenu CSV"></textarea>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="backupSheet" hidden>
+  <div class="wrap">
+    <div class="sheet-head"><h2>Sauvegarde</h2><button type="button" id="bkClose">Fermer</button></div>
+    <div class="bk">
+      <div class="hint">Tes dépannages sont enregistrés uniquement sur ce téléphone. Fais une sauvegarde chaque soir et garde le fichier sur ton PC et ton serveur.</div>
+      <div class="notice" id="bkLast"></div>
+      <div class="notice warn" id="bkWarn" hidden>Des dépannages ont été ajoutés ou modifiés depuis la dernière sauvegarde.</div>
+      <button class="primary" type="button" id="bkSave">Télécharger une sauvegarde</button>
+      <button type="button" id="bkShare">Partager la sauvegarde (Drive, e-mail...)</button>
+      <h3>Restaurer</h3>
+      <div class="hint">Choisis un fichier de sauvegarde Dépannages EP. Les dépannages du fichier sont ajoutés ou mis à jour, rien n'est supprimé.</div>
+      <label class="file" for="bkFile">Choisir un fichier de sauvegarde<input type="file" id="bkFile" accept=".json,application/json"></label>
+      <div class="hint" id="bkMsg" hidden></div>
+    </div>
+  </div>
+</div>
+
+<div class="viewer" id="viewer" hidden>
+  <div class="vcount" id="vcount"></div>
+  <div class="vimg"><img id="vimg" alt="Photo du dépannage"></div>
+  <div class="vbar">
+    <button type="button" id="vPrev">Précédente</button>
+    <button type="button" id="vNext">Suivante</button>
+    <button type="button" class="danger" id="vDel" hidden>Retirer</button>
+    <button type="button" id="vClose">Fermer</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const LS = 'dp_'; // préfixe local, pour ne pas mélanger avec l'appli Armoires
+  let items = [];
+  let editingId = null;
+  let formPhotos = [], pending = new Map(), removedPhotos = [], working = 0;
+  const urlCache = new Map();
+  const opened = {}; // jours ouverts pendant cette session (fermés à chaque ouverture)
+
+  // ---------- base locale ----------
+  let idb = null;
+  function openDb(){
+    return new Promise((res,rej)=>{
+      const r=indexedDB.open('depannages-ep',1);
+      r.onupgradeneeded=()=>{const d=r.result;
+        if(!d.objectStoreNames.contains('depannages')) d.createObjectStore('depannages',{keyPath:'id'});
+        if(!d.objectStoreNames.contains('photos')) d.createObjectStore('photos');};
+      r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+    });
+  }
+  function tx(stores,mode,fn){
+    return new Promise((res,rej)=>{
+      const t=idb.transaction(stores,mode); let out;
+      Promise.resolve(fn(t)).then(v=>out=v);
+      t.oncomplete=()=>res(out); t.onerror=()=>rej(t.error); t.onabort=()=>rej(t.error);
+    });
+  }
+  function reqP(r){return new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+  async function loadAll(){
+    items=await tx(['depannages'],'readonly',t=>reqP(t.objectStore('depannages').getAll()));
+    const ids=new Set(); items.forEach(a=>(a.photos||[]).forEach(p=>ids.add(p)));
+    await tx(['photos'],'readonly',async t=>{
+      const st=t.objectStore('photos');
+      for(const id of ids){ if(urlCache.has(id)) continue; const b=await reqP(st.get(id)); if(b) urlCache.set(id,URL.createObjectURL(b)); }
+    });
+  }
+  async function putItem(d){ await tx(['depannages'],'readwrite',t=>{t.objectStore('depannages').put(d);}); }
+  function newId(){return Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);}
+  function photoUrl(id){
+    if(pending.has(id)&&!urlCache.has(id)) urlCache.set(id,URL.createObjectURL(pending.get(id)));
+    return urlCache.get(id)||'';
+  }
+  function dropUrl(id){const u=urlCache.get(id);if(u){URL.revokeObjectURL(u);urlCache.delete(id);}}
+
+  // ---------- helpers ----------
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+  function hl(text,q){
+    const t=String(text||''); if(!q) return esc(t);
+    const nt=norm(t), i=nt.indexOf(q); if(i<0) return esc(t);
+    return esc(t.slice(0,i))+'<mark>'+esc(t.slice(i,i+q.length))+'</mark>'+esc(t.slice(i+q.length));
+  }
+  let toastT;
+  function toast(msg){const el=$('toast');el.textContent=msg;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2800);}
+  function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function dayLabel(j){
+    const [y,m,d]=j.split('-').map(Number); const dt=new Date(y,m-1,d);
+    const s=dt.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+    return s.charAt(0).toUpperCase()+s.slice(1);
+  }
+  function monthLabel(ym){const [y,m]=ym.split('-').map(Number);const s=new Date(y,m-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);}
+  function fmtDay(j){const [y,m,d]=j.split('-');return d+'/'+m+'/'+y;}
+  function parseCoords(raw){
+    const s=String(raw||'').trim(); if(!s) return null;
+    let m=s.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/) || s.match(/[?&](?:q|query|ll)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+    if(!m) m=s.replace(/°/g,' ').match(/(-?\d{1,3}[.,]\d+)\s*[,; ]\s*(-?\d{1,3}[.,]\d+)/);
+    if(!m) return {error:'Format non reconnu. Exemple : -20.8823, 55.4504'};
+    const lat=parseFloat(m[1].replace(',','.')), lon=parseFloat(m[2].replace(',','.'));
+    if(isNaN(lat)||isNaN(lon)||Math.abs(lat)>90||Math.abs(lon)>180) return {error:'Coordonnées invalides.'};
+    const reunion = lat<=-20.8 && lat>=-21.45 && lon>=55.15 && lon<=55.9;
+    return {lat:+lat.toFixed(6), lon:+lon.toFixed(6), reunion};
+  }
+  function mapsUrl(a){return 'https://www.google.com/maps/search/?api=1&query='+a.lat+','+a.lon;}
+  const RESEAU={souterrain:'Souterrain',aerien:'Aérien'};
+  const RESULTAT={repare:'Réparé',reprendre:'À reprendre'};
+
+  // ---------- matériel ----------
+  const PARTS=['lampe','ballast','amorceur','boitier','luminaire','cable','crosse','autre'];
+  function readMateriel(){
+    const m={};
+    if($('m_lampe').checked) m.lampe={type:$('m_lampe_type').value,puissance:$('m_lampe_w').value.trim(),culot:$('m_lampe_culot').value};
+    if($('m_ballast').checked) m.ballast={type:$('m_ballast_type').value,puissance:$('m_ballast_w').value.trim()};
+    if($('m_amorceur').checked) m.amorceur={type:$('m_amorceur_type').value};
+    if($('m_boitier').checked) m.boitier={type:$('m_boitier_type').value};
+    if($('m_luminaire').checked) m.luminaire=true;
+    if($('m_cable').checked) m.cable=true;
+    if($('m_crosse').checked) m.crosse=true;
+    if($('m_autre').checked) m.autre={texte:$('m_autre_txt').value.trim()};
+    return m;
+  }
+  function writeMateriel(m){
+    m=m||{};
+    $('m_lampe').checked=!!m.lampe; $('m_lampe_type').value=(m.lampe&&m.lampe.type)||'Sodium haute pression (SHP)'; $('m_lampe_w').value=(m.lampe&&m.lampe.puissance)||''; $('m_lampe_culot').value=(m.lampe&&m.lampe.culot)||'';
+    $('m_ballast').checked=!!m.ballast; $('m_ballast_type').value=(m.ballast&&m.ballast.type)||'Ferromagnétique'; $('m_ballast_w').value=(m.ballast&&m.ballast.puissance)||'';
+    $('m_amorceur').checked=!!m.amorceur; $('m_amorceur_type').value=(m.amorceur&&m.amorceur.type)||'Superposé (série)';
+    $('m_boitier').checked=!!m.boitier; $('m_boitier_type').value=(m.boitier&&m.boitier.type)||'Boîtier complet changé';
+    $('m_luminaire').checked=!!m.luminaire; $('m_cable').checked=!!m.cable; $('m_crosse').checked=!!m.crosse;
+    $('m_autre').checked=!!m.autre; $('m_autre_txt').value=(m.autre&&m.autre.texte)||'';
+    syncParts();
+  }
+  function syncParts(){['lampe','ballast','amorceur','boitier','autre'].forEach(p=>{$('d_'+p).hidden=!$('m_'+p).checked;});}
+  PARTS.forEach(p=>$('m_'+p).addEventListener('change',syncParts));
+  function w(v){v=String(v||'').trim();if(!v)return'';return /w$/i.test(v)?v.replace(/\s*w$/i,' W'):v+' W';}
+  function materielParts(m){
+    m=m||{}; const out=[];
+    if(m.lampe) out.push('Lampe '+[m.lampe.type,w(m.lampe.puissance),m.lampe.culot].filter(Boolean).join(' '));
+    if(m.ballast) out.push('Ballast '+[m.ballast.type.toLowerCase(),w(m.ballast.puissance)].filter(Boolean).join(' '));
+    if(m.amorceur) out.push('Amorceur '+m.amorceur.type.toLowerCase());
+    if(m.boitier) out.push('Pied de mât : '+m.boitier.type.toLowerCase());
+    if(m.luminaire) out.push('Luminaire complet');
+    if(m.cable) out.push('Câble / raccordement');
+    if(m.crosse) out.push('Crosse');
+    if(m.autre) out.push('Autre'+(m.autre.texte?' : '+m.autre.texte:''));
+    return out;
+  }
+
+  // ---------- liste par jour ----------
+  function render(){
+    $('nb').textContent=items.length;
+    const q=norm($('q').value.trim()), fr=$('fr').value, list=$('list');
+    let rows=items.slice();
+    if(fr) rows=rows.filter(a=>a.resultat===fr);
+    if(q) rows=rows.filter(a=>norm([a.adresse,a.support,a.panne,a.bon,a.origine,a.remarques,RESEAU[a.reseau],materielParts(a.materiel).join(' ')].join(' ')).includes(q));
+    const nrep=items.filter(a=>a.resultat==='reprendre').length;
+    const pn=$('pendingNote'); pn.hidden=!nrep||fr==='reprendre'; pn.textContent=nrep+' dépannage'+(nrep>1?'s':'')+' à reprendre. Filtre « À reprendre seulement » pour les voir.';
+    if(!items.length){list.innerHTML='<div class="empty"><h2>Aucun dépannage</h2><div>Touche « Nouveau dépannage » au pied du poteau pour enregistrer ta première intervention.</div></div>';return;}
+    if(!rows.length){list.innerHTML='<div class="empty"><h2>Aucun résultat</h2><div>Aucun dépannage ne correspond à cette recherche.</div></div>';return;}
+    const groups=new Map();
+    rows.forEach(a=>{if(!groups.has(a.jour))groups.set(a.jour,[]);groups.get(a.jour).push(a);});
+    const days=Array.from(groups.keys()).sort().reverse();
+    const forceOpen=!!q||!!fr;
+    list.innerHTML='<div class="groups">'+days.map(j=>{
+      const arr=groups.get(j).sort((x,y)=>(x.ordre||0)-(y.ordre||0)), open=forceOpen||!!opened[j];
+      const rep=arr.filter(a=>a.resultat==='reprendre').length;
+      return '<section class="group">'+
+        '<button type="button" class="ghead" data-g="'+esc(j)+'" aria-expanded="'+open+'">'+
+        '<span class="gname">'+esc(dayLabel(j))+(j===today()?' <span class="today">aujourd\'hui</span>':'')+'</span>'+
+        '<span class="gcount">'+arr.length+' dépannage'+(arr.length>1?'s':'')+(rep?' · '+rep+' à reprendre':'')+'<span class="chev" aria-hidden="true">&#9662;</span></span></button>'+
+        (open?arr.map((a,i)=>cardHtml(a,i+1,q)).join(''):'')+
+      '</section>';
+    }).join('')+'</div>';
+  }
+  function cardHtml(a,n,q){
+    const hasGps=typeof a.lat==='number';
+    const parts=materielParts(a.materiel);
+    const pics=(a.photos||[]).filter(p=>urlCache.has(p));
+    const title=a.adresse||(a.support?'Support '+a.support:(hasGps?'Adresse en attente':'Sans adresse'));
+    return '<article class="card">'+
+      '<div class="card-head"><div><div class="num"><span class="nth">'+n+'</span>'+hl(title,q)+'</div>'+
+        (a.support?'<div class="tr">Support '+hl(a.support,q)+'</div>':'')+
+        (a.adressePending?'<div class="addr">Adresse : en attente de réseau</div>':'')+'</div>'+
+      '<span class="pill '+(a.resultat==='reprendre'?'remplacer':'bon')+'">'+esc(RESULTAT[a.resultat]||'Réparé')+'</span></div>'+
+      '<div class="meta"><span><strong>'+esc(RESEAU[a.reseau]||'')+'</strong></span>'+
+        (a.panne?'<span>'+hl(a.panne,q)+'</span>':'')+
+        (a.origine?'<span>'+hl(a.origine,q)+(a.bon?' · bon '+hl(a.bon,q):'')+'</span>':(a.bon?'<span>Bon '+hl(a.bon,q)+'</span>':''))+'</div>'+
+      (parts.length?'<ul class="mat">'+parts.map(p=>'<li>'+hl(p,q)+'</li>').join('')+'</ul>':'<div class="addr">Aucun matériel changé</div>')+
+      (pics.length?'<div class="strip">'+pics.map((p,i)=>'<button type="button" data-view="'+esc(a.id)+'" data-i="'+i+'" aria-label="Voir la photo '+(i+1)+'"><img loading="lazy" src="'+esc(photoUrl(p))+'" alt=""></button>').join('')+'</div>':'')+
+      (a.remarques?'<div class="addr">'+hl(a.remarques,q)+'</div>':'')+
+      '<div class="actions">'+(hasGps?'<a class="btn" target="_blank" rel="noopener" href="'+esc(mapsUrl(a))+'">Voir sur la carte</a>':'')+
+      '<button type="button" data-edit="'+esc(a.id)+'">Modifier</button></div>'+
+    '</article>';
+  }
+  $('list').addEventListener('click',e=>{
+    const g=e.target.closest('[data-g]');
+    if(g){ if($('q').value.trim()||$('fr').value) return; const k=g.getAttribute('data-g'); opened[k]=!opened[k]; render(); return; }
+    const v=e.target.closest('[data-view]');
+    if(v){const a=items.find(x=>x.id===v.getAttribute('data-view'));if(a) openViewer((a.photos||[]).filter(p=>urlCache.has(p)),+v.getAttribute('data-i'),false);return;}
+    const b=e.target.closest('[data-edit]');if(b) openForm(b.getAttribute('data-edit'));
+  });
+  $('q').addEventListener('input',render);
+  $('fr').addEventListener('change',render);
+
+  // ---------- photos ----------
+  function renderPhotos(){
+    let html=formPhotos.map((id,i)=>'<button type="button" class="ph" data-ph="'+i+'" aria-label="Agrandir la photo '+(i+1)+'"><img src="'+esc(photoUrl(id))+'" alt=""></button>').join('');
+    for(let i=0;i<working;i++) html+='<div class="ph busy">Préparation...</div>';
+    html+='<label class="ph-add" for="f_photo"><span class="plus" aria-hidden="true">+</span>Ajouter<input type="file" id="f_photo" accept="image/*" multiple></label>';
+    $('photos').innerHTML=html; $('f_photo').addEventListener('change',onPick);
+  }
+  $('photos').addEventListener('click',e=>{const b=e.target.closest('[data-ph]');if(b) openViewer(formPhotos,+b.getAttribute('data-ph'),true);});
+  function resizeImage(file){
+    return new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file), img=new Image();
+      img.onload=()=>{
+        const max=1600, s=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+        const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
+        c.toBlob(b=>b?resolve(b):reject(new Error('conversion')),'image/jpeg',0.82);
+      };
+      img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('lecture'));};
+      img.src=url;
+    });
+  }
+  async function onPick(e){
+    const files=Array.from(e.target.files||[]); if(!files.length) return;
+    working+=files.length; renderPhotos();
+    for(const f of files){
+      try{ let b; try{b=await resizeImage(f);}catch(err){b=f;} const id=newId(); pending.set(id,b); formPhotos.push(id); }
+      catch(err){toast('Impossible de lire cette photo');}
+      finally{working--; renderPhotos();}
+    }
+  }
+  let vList=[], vIdx=0, vEdit=false;
+  function openViewer(list,i,edit){vList=list;vIdx=i;vEdit=edit;showV();$('viewer').hidden=false;}
+  function showV(){
+    if(!vList.length){$('viewer').hidden=true;return;}
+    vIdx=Math.max(0,Math.min(vIdx,vList.length-1));
+    $('vimg').src=photoUrl(vList[vIdx]); $('vcount').textContent='Photo '+(vIdx+1)+' sur '+vList.length;
+    $('vPrev').disabled=vIdx===0; $('vNext').disabled=vIdx===vList.length-1; $('vDel').hidden=!vEdit;
+  }
+  $('vPrev').addEventListener('click',()=>{vIdx--;showV();});
+  $('vNext').addEventListener('click',()=>{vIdx++;showV();});
+  $('vClose').addEventListener('click',()=>{$('viewer').hidden=true;});
+  $('vDel').addEventListener('click',()=>{
+    const id=formPhotos.splice(vIdx,1)[0];
+    if(id){ if(pending.has(id)){pending.delete(id);dropUrl(id);} else removedPhotos.push(id); }
+    vList=formPhotos; renderPhotos(); showV(); toast('Photo retirée, enregistre pour valider');
+  });
+
+  // ---------- adresse automatique ----------
+  async function reverseGeocode(lat,lon){
+    const urls=[
+      'https://data.geopf.fr/geocodage/reverse?lon='+lon+'&lat='+lat+'&index=address&limit=1',
+      'https://api-adresse.data.gouv.fr/reverse/?lon='+lon+'&lat='+lat+'&limit=1'
+    ];
+    for(const u of urls){
+      try{
+        const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),8000);
+        const r=await fetch(u,{signal:ctl.signal}); clearTimeout(t);
+        if(!r.ok) continue;
+        const j=await r.json(); const f=j&&j.features&&j.features[0];
+        if(f&&f.properties){ const p=f.properties;
+          const label=p.label||[p.name,p.postcode,p.city].filter(Boolean).join(' ');
+          return {label, distance: typeof p.distance==='number'?Math.round(p.distance):null}; }
+        return {label:'',distance:null};
+      }catch(e){}
+    }
+    return null; // pas de réseau / service indisponible
+  }
+  let addrAuto=false, lookupSeq=0;
+  async function lookupForm(lat,lon){
+    const seq=++lookupSeq, h=$('addrHint');
+    if(!navigator.onLine){ h.className='hint warn'; h.textContent="Pas de réseau : l'adresse sera cherchée automatiquement plus tard."; return; }
+    h.className='hint'; h.textContent="Recherche de l'adresse...";
+    const r=await reverseGeocode(lat,lon);
+    if(seq!==lookupSeq) return;
+    if(r===null){ h.className='hint warn'; h.textContent="Service d'adresse injoignable : elle sera cherchée plus tard."; return; }
+    if(!r.label){ h.className='hint warn'; h.textContent="Aucune adresse trouvée ici. Écris-la à la main."; return; }
+    if(!$('f_addr').value.trim()||addrAuto){ $('f_addr').value=r.label; addrAuto=true; }
+    h.className='hint ok'; h.textContent='Adresse la plus proche'+(r.distance!=null?' (à '+r.distance+' m)':'')+'. Corrige-la si besoin.';
+  }
+  $('f_addr').addEventListener('input',()=>{addrAuto=false;});
+  async function processPending(){
+    if(!navigator.onLine||!idb) return;
+    const todo=items.filter(a=>a.adressePending&&typeof a.lat==='number');
+    let done=0;
+    for(const a of todo){
+      const r=await reverseGeocode(a.lat,a.lon);
+      if(r===null) break;
+      const upd=Object.assign({},a,{adresse:a.adresse||r.label||'',adressePending:false});
+      try{ await putItem(upd); const i=items.findIndex(x=>x.id===a.id); if(i>=0) items[i]=upd; done++; }catch(e){}
+    }
+    if(done){ render(); toast(done+' adresse'+(done>1?'s':'')+' complétée'+(done>1?'s':'')); markDirty(); }
+  }
+  window.addEventListener('online',processPending);
+
+  // ---------- GPS ----------
+  let watchId=null, gpsTimer=null, best=null;
+  function stopGps(found){
+    const was=watchId!==null;
+    if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+    clearTimeout(gpsTimer); $('btnGps').textContent='Ma position'; $('btnGps').classList.remove('busy');
+    if(was&&found!==false&&best) lookupForm(+best.lat.toFixed(6),+best.lon.toFixed(6));
+  }
+  $('btnGps').addEventListener('click',()=>{
+    if(watchId!==null){stopGps();return;}
+    if(!('geolocation' in navigator)){toast('GPS non disponible sur cet appareil');return;}
+    best=null; $('btnGps').textContent='Recherche... (toucher pour arrêter)'; $('btnGps').classList.add('busy');
+    const h=$('coordHint'); h.className='hint'; h.textContent='Recherche du signal GPS, reste au pied du poteau...';
+    watchId=navigator.geolocation.watchPosition(p=>{
+      const c=p.coords;
+      if(!best||c.accuracy<best.accuracy){best={lat:c.latitude,lon:c.longitude,accuracy:c.accuracy};
+        $('f_coords').value=best.lat.toFixed(6)+', '+best.lon.toFixed(6); checkCoords(Math.round(best.accuracy));}
+      if(c.accuracy<=8) stopGps();
+    },err=>{
+      stopGps(false); h.className='hint err';
+      h.textContent=err.code===1?'Accès au GPS refusé. Autorise la localisation pour cette appli dans les réglages de Chrome.':'Position introuvable. Active le GPS du téléphone et réessaie.';
+    },{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+    gpsTimer=setTimeout(()=>stopGps(),25000);
+  });
+  function checkCoords(acc){
+    const h=$('coordHint'), r=parseCoords($('f_coords').value);
+    if(!r){h.className='hint';h.textContent="Touche « Ma position » au pied du poteau. L'adresse se remplit toute seule.";return r;}
+    if(r.error){h.className='hint err';h.textContent=r.error;return r;}
+    const pr=typeof acc==='number'?' (précision ±'+acc+' m)':'';
+    if(!r.reunion){h.className='hint warn';h.textContent='Lat '+r.lat+' / Lon '+r.lon+pr+' : ce point est hors de La Réunion, vérifie.';return r;}
+    h.className='hint ok';h.textContent='Lat '+r.lat+' / Lon '+r.lon+pr+' : point valide.';return r;
+  }
+  $('f_coords').addEventListener('input',()=>checkCoords());
+  $('f_coords').addEventListener('change',()=>{const r=parseCoords($('f_coords').value); if(r&&!r.error) lookupForm(r.lat,r.lon);});
+
+  // ---------- formulaire ----------
+  function openForm(id){
+    editingId=id||null;
+    const a=id?items.find(x=>x.id===id):null;
+    $('sheetTitle').textContent=a?'Modifier le dépannage':'Nouveau dépannage';
+    $('f_jour').value=a?a.jour:today();
+    $('f_support').value=a?a.support||'':'';
+    $('f_coords').value=a&&typeof a.lat==='number'?a.lat+', '+a.lon:'';
+    $('f_addr').value=a?a.adresse||'':''; addrAuto=false; lookupSeq++;
+    $('addrHint').className='hint'; $('addrHint').textContent=a&&a.adressePending?"Adresse en attente de réseau.":'';
+    document.querySelectorAll('input[name="reseau"]').forEach(r=>r.checked=r.value===((a&&a.reseau)||'souterrain'));
+    document.querySelectorAll('input[name="resultat"]').forEach(r=>r.checked=r.value===((a&&a.resultat)||'repare'));
+    $('f_origine').value=a?a.origine||'':''; $('f_bon').value=a?a.bon||'':''; $('f_panne').value=a?a.panne||'':'';
+    writeMateriel(a?a.materiel:null);
+    $('f_rem').value=a?a.remarques||'':'';
+    formPhotos=a&&Array.isArray(a.photos)?a.photos.filter(p=>urlCache.has(p)):[]; pending=new Map(); removedPhotos=[]; working=0;
+    renderPhotos();
+    $('btnDel').hidden=!a; $('confirmDel').hidden=true; $('formErr').hidden=true;
+    checkCoords();
+    $('sheet').hidden=false; $('sheet').scrollTop=0;
+  }
+  function closeForm(){
+    if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;clearTimeout(gpsTimer);$('btnGps').textContent='Ma position';$('btnGps').classList.remove('busy');}
+    lookupSeq++;
+    pending.forEach((b,id)=>dropUrl(id));
+    $('sheet').hidden=true; editingId=null; pending=new Map(); removedPhotos=[];
+  }
+  $('btnNew').addEventListener('click',()=>openForm(null));
+  $('btnClose').addEventListener('click',closeForm);
+  function formErr(msg){const e=$('formErr');e.textContent=msg;e.hidden=false;e.scrollIntoView({block:'center'});}
+
+  $('f').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const jour=$('f_jour').value||today();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(jour)){formErr("Indique le jour de l'intervention.");return;}
+    const c=parseCoords($('f_coords').value);
+    if(c&&c.error){formErr(c.error);$('f_coords').focus();return;}
+    if(working>0){formErr('Attends la fin de la préparation des photos.');return;}
+    const adresse=$('f_addr').value.trim();
+    if(!c&&!adresse&&!$('f_support').value.trim()){formErr('Indique au moins la position, l\'adresse ou le n° du support.');return;}
+    const old=editingId?items.find(x=>x.id===editingId):null;
+    // ordre dans la journée : numéro de saisie, sans aucune heure enregistrée
+    let ordre=old&&old.jour===jour?old.ordre:items.filter(x=>x.jour===jour).reduce((m,x)=>Math.max(m,x.ordre||0),0)+1;
+    const data={
+      id: old?old.id:newId(), jour, ordre,
+      support:$('f_support').value.trim(),
+      lat:c?c.lat:null, lon:c?c.lon:null,
+      adresse, adressePending: !!c && !adresse,
+      reseau:(document.querySelector('input[name="reseau"]:checked')||{}).value||'souterrain',
+      origine:$('f_origine').value, bon:$('f_bon').value.trim(), panne:$('f_panne').value.trim(),
+      materiel:readMateriel(),
+      resultat:(document.querySelector('input[name="resultat"]:checked')||{}).value||'repare',
+      remarques:$('f_rem').value.trim(),
+      photos:formPhotos.slice()
+    };
+    $('btnSave').disabled=true;
+    try{
+      const newPics=Array.from(pending.entries()), gone=removedPhotos.slice();
+      await tx(['depannages','photos'],'readwrite',t=>{
+        t.objectStore('depannages').put(data);
+        newPics.forEach(([id,b])=>t.objectStore('photos').put(b,id));
+        gone.forEach(id=>t.objectStore('photos').delete(id));
+      });
+      gone.forEach(dropUrl); pending=new Map();
+      const i=items.findIndex(x=>x.id===data.id); if(i>=0) items[i]=data; else items.push(data);
+      opened[jour]=true;
+      closeForm(); render(); toast('Dépannage enregistré'); markDirty();
+      if(data.adressePending) processPending();
+    }catch(err){
+      formErr(err&&err.name==='QuotaExceededError'?"Le téléphone n'a plus de place. Libère de l'espace puis réessaie.":"Échec de l'enregistrement sur le téléphone. Réessaie.");
+    }finally{$('btnSave').disabled=false;}
+  });
+
+  $('btnDel').addEventListener('click',()=>{$('confirmDel').hidden=false;$('confirmDel').scrollIntoView({block:'center'});});
+  $('delNo').addEventListener('click',()=>$('confirmDel').hidden=true);
+  $('delYes').addEventListener('click',async()=>{
+    const a=items.find(x=>x.id===editingId); if(!a) return;
+    try{
+      await tx(['depannages','photos'],'readwrite',t=>{t.objectStore('depannages').delete(a.id);(a.photos||[]).forEach(id=>t.objectStore('photos').delete(id));});
+      (a.photos||[]).forEach(dropUrl); items=items.filter(x=>x.id!==a.id);
+      closeForm(); render(); toast('Dépannage supprimé'); markDirty();
+    }catch(e){formErr('Échec de la suppression. Réessaie.');}
+  });
+
+  // ---------- fichiers ----------
+  function download(name,blob){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);}
+  async function share(name,blob,title){
+    const file=new File([blob],name,{type:blob.type||'application/octet-stream'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){ try{await navigator.share({files:[file],title});return true;}catch(e){if(e&&e.name==='AbortError')return true;} }
+    return false;
+  }
+  const canShareFiles=(()=>{try{return !!(navigator.canShare&&navigator.canShare({files:[new File(['x'],'t.txt',{type:'text/plain'})]}));}catch(e){return false;}})();
+
+  // ---------- export CSV ----------
+  function csvCell(v){v=v==null?'':String(v);return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+  function periodRows(p){
+    let rows=items.slice();
+    if(p.startsWith('d:')) rows=rows.filter(a=>a.jour===p.slice(2));
+    else if(p.startsWith('m:')) rows=rows.filter(a=>a.jour.slice(0,7)===p.slice(2));
+    return rows.sort((x,y)=>x.jour<y.jour?-1:x.jour>y.jour?1:(x.ordre||0)-(y.ordre||0));
+  }
+  function buildCsv(rows){
+    const head=['jour','n_du_jour','adresse','support','lat','lon','reseau','origine','n_bon','panne',
+      'lampe','lampe_type','lampe_puissance','lampe_culot','ballast','ballast_type','ballast_puissance','amorceur','amorceur_type',
+      'boitier_pied_mat','boitier_detail','luminaire_complet','cable','crosse','autre','materiel_resume','resultat','remarques','nb_photos'];
+    const lines=[head.join(',')];
+    rows.forEach(a=>{
+      const m=a.materiel||{}, yn=v=>v?'oui':'';
+      lines.push([fmtDay(a.jour),a.ordre||'',a.adresse,a.support,typeof a.lat==='number'?a.lat:'',typeof a.lon==='number'?a.lon:'',RESEAU[a.reseau]||'',a.origine,a.bon,a.panne,
+        yn(m.lampe),m.lampe?m.lampe.type:'',m.lampe?w(m.lampe.puissance):'',m.lampe?m.lampe.culot:'',
+        yn(m.ballast),m.ballast?m.ballast.type:'',m.ballast?w(m.ballast.puissance):'',yn(m.amorceur),m.amorceur?m.amorceur.type:'',
+        yn(m.boitier),m.boitier?m.boitier.type:'',yn(m.luminaire),yn(m.cable),yn(m.crosse),m.autre?(m.autre.texte||'oui'):'',
+        materielParts(m).join(' | '),RESULTAT[a.resultat]||'',a.remarques,(a.photos||[]).length].map(csvCell).join(','));
+    });
+    return lines.join('\n');
+  }
+  function fillPeriods(){
+    const sel=$('expPeriod'), days=Array.from(new Set(items.map(a=>a.jour))).sort().reverse(), months=Array.from(new Set(days.map(d=>d.slice(0,7))));
+    sel.innerHTML='<optgroup label="Un jour">'+days.map(d=>'<option value="d:'+d+'">'+esc(dayLabel(d))+'</option>').join('')+'</optgroup>'+
+      '<optgroup label="Un mois">'+months.map(m=>'<option value="m:'+m+'">'+esc(monthLabel(m))+'</option>').join('')+'</optgroup>'+
+      '<option value="all">Tout</option>';
+  }
+  function refreshExport(){
+    const rows=periodRows($('expPeriod').value);
+    $('expInfo').textContent=rows.length+' dépannage'+(rows.length>1?'s':'')+' dans ce fichier.';
+    $('expText').value=buildCsv(rows);
+  }
+  function expName(){const p=$('expPeriod').value;return 'depannages-ep-'+(p==='all'?'tout':p.slice(2))+'.csv';}
+  function csvBlob(){return new Blob(['﻿'+$('expText').value],{type:'text/csv'});}
+  $('btnExport').addEventListener('click',()=>{
+    if(!items.length){toast('Aucun dépannage à exporter');return;}
+    fillPeriods(); refreshExport(); $('expShare').hidden=!canShareFiles; $('exportSheet').hidden=false;
+  });
+  $('expPeriod').addEventListener('change',refreshExport);
+  $('expClose').addEventListener('click',()=>$('exportSheet').hidden=true);
+  $('expSave').addEventListener('click',()=>{download(expName(),csvBlob());toast('Fichier dans Téléchargements');});
+  $('expShare').addEventListener('click',async()=>{if(!await share(expName(),csvBlob(),'Export dépannages EP'))toast('Partage impossible, utilise « Télécharger »');});
+  $('expCopy').addEventListener('click',()=>{
+    const t=$('expText');
+    try{navigator.clipboard.writeText(t.value).then(()=>toast('CSV copié'),()=>{t.select();toast('Texte sélectionné, copie-le');});}
+    catch(e){t.select();toast('Texte sélectionné, copie-le');}
+  });
+
+  // ---------- sauvegarde ----------
+  function blobToB64(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=()=>rej(r.error);r.readAsDataURL(b);});}
+  function b64ToBlob(s,type){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:type||'image/jpeg'});}
+  async function buildBackup(){
+    const photos=[];
+    await tx(['photos'],'readonly',async t=>{const st=t.objectStore('photos');
+      for(const a of items) for(const id of (a.photos||[])){const b=await reqP(st.get(id)); if(b) photos.push({id,type:b.type||'image/jpeg',blob:b});}});
+    const out=[]; for(const p of photos) out.push({id:p.id,type:p.type,data:await blobToB64(p.blob)});
+    return new Blob([JSON.stringify({app:'depannages-ep',version:1,depannages:items,photos:out})],{type:'application/json'});
+  }
+  function lsGet(k){try{return localStorage.getItem(LS+k);}catch(e){return null;}}
+  function lsSet(k,v){try{localStorage.setItem(LS+k,v);}catch(e){}}
+  function lastBackupText(){
+    const t=lsGet('lastBackup');
+    $('bkLast').textContent=t?'Dernière sauvegarde : '+fmtDay(t):'Aucune sauvegarde faite sur ce téléphone.';
+    $('bkWarn').hidden=!(lsGet('dirty')==='1'&&items.length);
+  }
+  function markDirty(){lsSet('dirty','1');lastBackupText();}
+  function markSaved(){lsSet('lastBackup',today());lsSet('dirty','0');lastBackupText();}
+  $('btnBackup').addEventListener('click',()=>{lastBackupText();$('bkShare').hidden=!canShareFiles;$('bkMsg').hidden=true;$('backupSheet').hidden=false;});
+  $('bkClose').addEventListener('click',()=>$('backupSheet').hidden=true);
+  async function doBackup(viaShare){
+    if(!items.length){toast('Aucun dépannage à sauvegarder');return;}
+    const btns=[$('bkSave'),$('bkShare')]; btns.forEach(b=>b.disabled=true);
+    try{
+      const blob=await buildBackup(), name='sauvegarde-depannages-'+today()+'.json';
+      if(viaShare){ if(!await share(name,blob,'Sauvegarde dépannages EP')){toast('Partage impossible, utilise « Télécharger »');return;} }
+      else download(name,blob);
+      markSaved(); toast(viaShare?'Sauvegarde partagée':'Sauvegarde dans Téléchargements');
+    }catch(e){toast('Échec de la sauvegarde');}
+    finally{btns.forEach(b=>b.disabled=false);}
+  }
+  $('bkSave').addEventListener('click',()=>doBackup(false));
+  $('bkShare').addEventListener('click',()=>doBackup(true));
+  $('bkFile').addEventListener('change',async e=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+    const msg=$('bkMsg'); msg.hidden=false; msg.className='hint'; msg.textContent='Lecture du fichier...';
+    try{
+      const j=JSON.parse(await f.text());
+      if(j&&j.app==='armoires-ep') throw new Error('armoires');
+      if(!j||j.app!=='depannages-ep'||!Array.isArray(j.depannages)) throw new Error('format');
+      const list=j.depannages.filter(a=>a&&a.id&&a.jour), known=new Set(items.map(a=>a.id)); let added=0,updated=0;
+      await tx(['depannages','photos'],'readwrite',t=>{
+        list.forEach(a=>{t.objectStore('depannages').put(a); known.has(a.id)?updated++:added++;});
+        (j.photos||[]).forEach(p=>{if(p&&p.id&&p.data) t.objectStore('photos').put(b64ToBlob(p.data,p.type),p.id);});
+      });
+      await loadAll(); render();
+      msg.className='hint ok'; msg.textContent=added+' dépannage(s) ajouté(s), '+updated+' mis à jour, '+((j.photos||[]).length)+' photo(s).';
+      markDirty();
+    }catch(err){
+      msg.className='hint err';
+      msg.textContent=err&&err.message==='armoires'?"Ce fichier est une sauvegarde de l'appli Armoires EP. Restaure-le dans l'appli Armoires.":"Ce fichier n'est pas une sauvegarde Dépannages EP valide.";
+    }
+  });
+
+  // ---------- démarrage ----------
+  (async()=>{
+    try{
+      idb=await openDb(); await loadAll(); render(); lastBackupText();
+      try{ if(navigator.storage&&navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
+      processPending();
+    }catch(e){
+      const s=$('status'); s.hidden=false; s.className='notice warn';
+      s.textContent="Impossible d'ouvrir l'enregistrement sur ce téléphone. Ouvre l'appli dans Chrome (pas en navigation privée).";
+      $('btnNew').disabled=true;
+    }
+  })();
+  if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+})();
+</script>
+</body>
+</html>
