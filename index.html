@@ -147,6 +147,16 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
 .mat{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px;font-size:15px}
 .mat li{overflow-wrap:anywhere}
 .nth{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:15px;margin-right:8px;vertical-align:2px;padding:0 4px}
+.nightbox{border-color:#5E7BD6}
+.nightbox legend{color:#8FA8F0}
+.nlist{display:flex;flex-direction:column;gap:6px}
+.nlist button{text-align:left;min-height:52px;padding:8px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;font-weight:500}
+.nlist button b{font-family:var(--f-display);font-size:17px}
+.nlist button span{font-size:13px;color:var(--muted)}
+.nlink{border:1.5px solid #5E7BD6;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.nsug{border:1.5px solid var(--warn);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.nrow{display:flex;gap:8px;flex-wrap:wrap}.nrow button{flex:1;min-width:120px}
+.nmark{font-size:13px;font-weight:600;color:#8FA8F0}
 .today{font-family:var(--f-body);font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin-left:6px;vertical-align:3px}
 </style>
 </head>
@@ -183,6 +193,19 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
       <button type="button" id="btnClose">Fermer</button>
     </div>
     <form id="f" novalidate>
+      <fieldset class="nightbox" id="nightBox" hidden>
+        <legend>Points de la tournée de nuit à dépanner</legend>
+        <div class="nlink" id="nightLinked" hidden>
+          <div id="nightLinkedTxt"></div>
+          <div class="nrow"><button type="button" id="btnUnlink">Délier</button></div>
+        </div>
+        <div class="nsug" id="nightSug" hidden>
+          <div id="nightSugTxt"></div>
+          <div class="nrow"><button type="button" class="primary" id="btnSugYes">Le lier</button><button type="button" id="btnSugNo">Non</button></div>
+        </div>
+        <div class="nlist" id="nightList"></div>
+        <div class="hint" id="nightHint">Touche un point pour remplir la fiche. Il sera marqué dépanné dans la Tournée de nuit quand tu enregistreras avec « Réparé ».</div>
+      </fieldset>
       <div class="row2">
         <div class="field">
           <label for="f_jour">Jour de l'intervention</label>
@@ -240,6 +263,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
           <input id="f_panne" list="panneList" autocomplete="off" placeholder="Lampe éteinte">
           <datalist id="panneList">
             <option value="Lampe éteinte"></option>
+            <option value="Désamorce"></option>
             <option value="Lampe qui clignote"></option>
             <option value="Allumée de jour"></option>
             <option value="Plusieurs points éteints"></option>
@@ -462,6 +486,87 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
   const RESEAU={souterrain:'Souterrain',aerien:'Aérien'};
   const RESULTAT={repare:'Réparé',reprendre:'À reprendre'};
 
+  // ---------- lien avec l'appli Tournée de nuit (même téléphone) ----------
+  const NTYPES={hs:'HS',desamorce:'Désamorce',plusieurs:'Plusieurs lampes HS',rue:'Rue entière éteinte'};
+  const NPANNE={hs:'Lampe éteinte',desamorce:'Désamorce',plusieurs:'Plusieurs points éteints',rue:'Rue entière éteinte'};
+  // Ouvre la base de la Tournée de nuit sans jamais la créer ni la modifier si elle n'existe pas
+  function openNight(){
+    return new Promise(res=>{
+      let r; try{r=indexedDB.open('tournee-nuit');}catch(e){res(null);return;}
+      r.onupgradeneeded=()=>{try{r.transaction.abort();}catch(e){}};
+      r.onsuccess=()=>{const d=r.result; d.onversionchange=()=>d.close();
+        if(!d.objectStoreNames.contains('points')){d.close();res(null);return;} res(d);};
+      r.onerror=()=>res(null); r.onblocked=()=>res(null);
+    });
+  }
+  async function nightAll(){
+    const d=await openNight(); if(!d) return null;
+    try{ const t=d.transaction('points','readonly'); return await reqP(t.objectStore('points').getAll()); }
+    catch(e){return null;} finally{d.close();}
+  }
+  async function nightUpdate(id,fn){
+    const d=await openNight(); if(!d) return false;
+    try{
+      const t=d.transaction('points','readwrite'), st=t.objectStore('points');
+      const p=await reqP(st.get(id)); if(!p) return false;
+      fn(p); st.put(p);
+      await new Promise((res,rej)=>{t.oncomplete=res;t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error);});
+      return true;
+    }catch(e){return false;} finally{d.close();}
+  }
+  function distM(a,b){const R=6371000,t=Math.PI/180,dLa=(b.lat-a.lat)*t,dLo=(b.lon-a.lon)*t;
+    const x=Math.sin(dLa/2)**2+Math.cos(a.lat*t)*Math.cos(b.lat*t)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+  function nDay(n){const [y,m,d]=n.split('-');return d+'/'+m;}
+  function nightText(p){return (p.type==='plusieurs'&&p.nombre?p.nombre+' lampes HS':NTYPES[p.type]||'')+' · '+(p.adresse||'adresse inconnue');}
+  let nightOpen=[], linked=null, sugDismissed=new Set(), nightShowAll=false;
+  function herePos(){const r=parseCoords($('f_coords').value);return r&&!r.error?r:null;}
+  async function loadNight(){
+    const all=await nightAll();
+    nightOpen=(all||[]).filter(p=>!p.depanne||(linked&&p.id===linked.id));
+    renderNight();
+  }
+  function renderNight(){
+    const box=$('nightBox'), here=herePos();
+    const list=nightOpen.filter(p=>!linked||p.id!==linked.id).map(p=>({p,d:here&&typeof p.lat==='number'?distM(here,p):null}));
+    list.sort((a,b)=>a.d!=null&&b.d!=null?a.d-b.d:a.d!=null?-1:b.d!=null?1:(b.p.nuit.localeCompare(a.p.nuit)||(a.p.ordre||0)-(b.p.ordre||0)));
+    box.hidden=!nightOpen.length&&!linked;
+    $('nightLinked').hidden=!linked;
+    if(linked) $('nightLinkedTxt').innerHTML='<span class="nmark">Lié au point de la tournée du '+esc(nDay(linked.nuit))+'</span><br>'+esc(nightText(linked));
+    const max=nightShowAll?list.length:6;
+    $('nightList').innerHTML=linked?'':list.slice(0,max).map(x=>'<button type="button" data-np="'+esc(x.p.id)+'"><b>'+esc(nightText(x.p))+'</b><span>Nuit du '+esc(nDay(x.p.nuit))+(x.d!=null?' · à '+(x.d<1000?Math.round(x.d)+' m':(x.d/1000).toFixed(1)+' km'):'')+(x.p.remarque?' · '+esc(x.p.remarque):'')+'</span></button>').join('')+
+      (!linked&&list.length>max?'<button type="button" id="nightMore"><b>Voir les '+list.length+' points</b></button>':'');
+    $('nightHint').hidden=!!linked;
+    if(linked) $('nightSug').hidden=true;
+  }
+  function linkNight(p){
+    linked={id:p.id,nuit:p.nuit,type:p.type,nombre:p.nombre,adresse:p.adresse,remarque:p.remarque};
+    $('nightSug').hidden=true;
+    if(typeof p.lat==='number'&&!herePos()){ $('f_coords').value=p.lat+', '+p.lon; checkCoords(); }
+    if(p.adresse&&!$('f_addr').value.trim()){ $('f_addr').value=p.adresse; addrAuto=false; }
+    if(!$('f_panne').value.trim()) $('f_panne').value=NPANNE[p.type]+(p.type==='plusieurs'&&p.nombre?' ('+p.nombre+')':'');
+    if(!$('f_origine').value) $('f_origine').value='Tournée de nuit';
+    if(p.remarque&&!$('f_rem').value.includes(p.remarque)) $('f_rem').value=($('f_rem').value?$('f_rem').value+'\n':'')+'Tournée : '+p.remarque;
+    renderNight(); toast('Fiche remplie depuis la tournée de nuit');
+  }
+  $('nightList').addEventListener('click',e=>{
+    if(e.target.closest('#nightMore')){nightShowAll=true;renderNight();return;}
+    const b=e.target.closest('[data-np]'); if(!b)return;
+    const p=nightOpen.find(x=>x.id===b.getAttribute('data-np')); if(p) linkNight(p);
+  });
+  $('btnUnlink').addEventListener('click',()=>{linked=null;renderNight();});
+  let sugId=null;
+  function suggestNear(){
+    if(linked) return; const here=herePos(); if(!here) return;
+    let best=null; nightOpen.forEach(p=>{ if(typeof p.lat!=='number'||sugDismissed.has(p.id))return; const d=distM(here,p); if(d<=15&&(!best||d<best.d)) best={p,d}; });
+    renderNight();
+    if(!best){$('nightSug').hidden=true;return;}
+    sugId=best.p.id;
+    $('nightSugTxt').innerHTML='Point de la tournée du '+esc(nDay(best.p.nuit))+' à '+Math.round(best.d)+' m : <b>'+esc(nightText(best.p))+'</b>. Le lier à ce dépannage ?';
+    $('nightSug').hidden=false;
+  }
+  $('btnSugYes').addEventListener('click',()=>{const p=nightOpen.find(x=>x.id===sugId);if(p)linkNight(p);});
+  $('btnSugNo').addEventListener('click',()=>{if(sugId)sugDismissed.add(sugId);$('nightSug').hidden=true;});
+
   // ---------- matériel ----------
   const PARTS=['lampe','ballast','amorceur','boitier','luminaire','cable','crosse','autre'];
   function readMateriel(){
@@ -536,7 +641,8 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
     return '<article class="card">'+
       '<div class="card-head"><div><div class="num"><span class="nth">'+n+'</span>'+hl(title,q)+'</div>'+
         (a.support?'<div class="tr">Support '+hl(a.support,q)+'</div>':'')+
-        (a.adressePending?'<div class="addr">Adresse : en attente de réseau</div>':'')+'</div>'+
+        (a.adressePending?'<div class="addr">Adresse : en attente de réseau</div>':'')+
+        (a.pointNuit?'<div class="nmark">Point de la tournée du '+esc(nDay(a.pointNuit.nuit))+'</div>':'')+'</div>'+
       '<span class="pill '+(a.resultat==='reprendre'?'remplacer':'bon')+'">'+esc(RESULTAT[a.resultat]||'Réparé')+'</span></div>'+
       '<div class="meta"><span><strong>'+esc(RESEAU[a.reseau]||'')+'</strong></span>'+
         (a.panne?'<span>'+hl(a.panne,q)+'</span>':'')+
@@ -658,7 +764,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
     const was=watchId!==null;
     if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}
     clearTimeout(gpsTimer); $('btnGps').textContent='Ma position'; $('btnGps').classList.remove('busy');
-    if(was&&found!==false&&best) lookupForm(+best.lat.toFixed(6),+best.lon.toFixed(6));
+    if(was&&found!==false&&best){ lookupForm(+best.lat.toFixed(6),+best.lon.toFixed(6)); suggestNear(); }
   }
   $('btnGps').addEventListener('click',()=>{
     if(watchId!==null){stopGps();return;}
@@ -685,7 +791,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
     h.className='hint ok';h.textContent='Lat '+r.lat+' / Lon '+r.lon+pr+' : point valide.';return r;
   }
   $('f_coords').addEventListener('input',()=>checkCoords());
-  $('f_coords').addEventListener('change',()=>{const r=parseCoords($('f_coords').value); if(r&&!r.error) lookupForm(r.lat,r.lon);});
+  $('f_coords').addEventListener('change',()=>{const r=parseCoords($('f_coords').value); if(r&&!r.error){ lookupForm(r.lat,r.lon); suggestNear(); }});
 
   // ---------- formulaire ----------
   function openForm(id){
@@ -706,6 +812,8 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
     renderPhotos();
     $('btnDel').hidden=!a; $('confirmDel').hidden=true; $('formErr').hidden=true;
     checkCoords();
+    linked=a&&a.pointNuit?Object.assign({},a.pointNuit):null; sugDismissed=new Set(); nightShowAll=false; nightOpen=[];
+    $('nightSug').hidden=true; $('nightBox').hidden=true; loadNight();
     $('sheet').hidden=false; $('sheet').scrollTop=0;
   }
   function closeForm(){
@@ -740,8 +848,10 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
       materiel:readMateriel(),
       resultat:(document.querySelector('input[name="resultat"]:checked')||{}).value||'repare',
       remarques:$('f_rem').value.trim(),
-      photos:formPhotos.slice()
+      photos:formPhotos.slice(),
+      pointNuit: linked?{id:linked.id,nuit:linked.nuit,type:linked.type,nombre:linked.nombre||null,adresse:linked.adresse||'',remarque:linked.remarque||''}:null
     };
+    const oldLink=old&&old.pointNuit?old.pointNuit.id:null;
     $('btnSave').disabled=true;
     try{
       const newPics=Array.from(pending.entries()), gone=removedPhotos.slice();
@@ -753,7 +863,18 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
       gone.forEach(dropUrl); pending=new Map();
       const i=items.findIndex(x=>x.id===data.id); if(i>=0) items[i]=data; else items.push(data);
       opened[jour]=true;
-      closeForm(); render(); toast('Dépannage enregistré'); markDirty();
+      // mise à jour de la Tournée de nuit
+      let nmsg='';
+      if(oldLink&&(!data.pointNuit||data.pointNuit.id!==oldLink))
+        await nightUpdate(oldLink,p=>{if(p.depanne&&p.depanne.depannageId===data.id)p.depanne=null;});
+      if(data.pointNuit){
+        const ok=await nightUpdate(data.pointNuit.id,p=>{
+          if(data.resultat==='repare') p.depanne={jour:data.jour,depannageId:data.id,manuel:false};
+          else if(p.depanne&&p.depanne.depannageId===data.id) p.depanne=null;
+        });
+        nmsg=ok?(data.resultat==='repare'?' · point de la tournée marqué dépanné':' · point de la tournée laissé à dépanner'):' · point de la tournée introuvable';
+      }
+      closeForm(); render(); toast('Dépannage enregistré'+nmsg); markDirty();
       if(data.adressePending) processPending();
     }catch(err){
       formErr(err&&err.name==='QuotaExceededError'?"Le téléphone n'a plus de place. Libère de l'espace puis réessaie.":"Échec de l'enregistrement sur le téléphone. Réessaie.");
@@ -767,6 +888,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
     try{
       await tx(['depannages','photos'],'readwrite',t=>{t.objectStore('depannages').delete(a.id);(a.photos||[]).forEach(id=>t.objectStore('photos').delete(id));});
       (a.photos||[]).forEach(dropUrl); items=items.filter(x=>x.id!==a.id);
+      if(a.pointNuit) await nightUpdate(a.pointNuit.id,p=>{if(p.depanne&&p.depanne.depannageId===a.id)p.depanne=null;});
       closeForm(); render(); toast('Dépannage supprimé'); markDirty();
     }catch(e){formErr('Échec de la suppression. Réessaie.');}
   });
@@ -791,7 +913,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
   function buildCsv(rows){
     const head=['jour','n_du_jour','adresse','support','lat','lon','reseau','origine','n_bon','panne',
       'lampe','lampe_type','lampe_puissance','lampe_culot','ballast','ballast_type','ballast_puissance','amorceur','amorceur_type',
-      'boitier_pied_mat','boitier_detail','luminaire_complet','cable','crosse','autre','materiel_resume','resultat','remarques','nb_photos'];
+      'boitier_pied_mat','boitier_detail','luminaire_complet','cable','crosse','autre','materiel_resume','resultat','remarques','nb_photos','tournee_nuit_du'];
     const lines=[head.join(',')];
     rows.forEach(a=>{
       const m=a.materiel||{}, yn=v=>v?'oui':'';
@@ -799,7 +921,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
         yn(m.lampe),m.lampe?m.lampe.type:'',m.lampe?w(m.lampe.puissance):'',m.lampe?m.lampe.culot:'',
         yn(m.ballast),m.ballast?m.ballast.type:'',m.ballast?w(m.ballast.puissance):'',yn(m.amorceur),m.amorceur?m.amorceur.type:'',
         yn(m.boitier),m.boitier?m.boitier.type:'',yn(m.luminaire),yn(m.cable),yn(m.crosse),m.autre?(m.autre.texte||'oui'):'',
-        materielParts(m).join(' | '),RESULTAT[a.resultat]||'',a.remarques,(a.photos||[]).length].map(csvCell).join(','));
+        materielParts(m).join(' | '),RESULTAT[a.resultat]||'',a.remarques,(a.photos||[]).length,a.pointNuit?fmtDay(a.pointNuit.nuit):''].map(csvCell).join(','));
     });
     return lines.join('\n');
   }
