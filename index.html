@@ -158,6 +158,16 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
 .nrow{display:flex;gap:8px;flex-wrap:wrap}.nrow button{flex:1;min-width:120px}
 .nmark{font-size:13px;font-weight:600;color:#8FA8F0}
 .today{font-family:var(--f-body);font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin-left:6px;vertical-align:3px}
+.todo{width:100%;min-height:56px;margin-bottom:12px;border:1.5px solid #5E7BD6;background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:17px}
+.todo b{font-family:var(--f-display);font-size:22px;color:#5E7BD6;min-width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:var(--bg)}
+.tlist{display:flex;flex-direction:column;gap:16px}
+.tnight{font-family:var(--f-display);font-weight:700;font-size:19px;border-bottom:1.5px solid var(--line);padding-bottom:6px}
+.titem{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.titem .tt{font-family:var(--f-display);font-weight:700;font-size:18px}
+.tt.hs{color:#D9483B}.tt.desamorce{color:#C27A12}.tt.plusieurs{color:#8A55D6}.tt.rue{color:#2F7FD6}
+.titem .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.titem .acts a,.titem .acts button{flex:1;min-width:120px}
+.ver{text-align:center;color:var(--muted);font-size:12px;margin-top:28px;padding-bottom:70px}
 </style>
 </head>
 <body>
@@ -171,6 +181,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
   </header>
   <div class="notice" id="status" hidden></div>
   <div class="notice warn" id="pendingNote" hidden></div>
+  <button type="button" class="todo" id="btnTodo" hidden><span>À faire : tournée de nuit</span><b id="todoN">0</b></button>
   <div class="toolbar wrapline">
     <div class="search"><input id="q" type="search" placeholder="Chercher une rue, une lampe, un bon..." autocomplete="off" aria-label="Rechercher"></div>
     <button id="btnExport" type="button">Export CSV</button>
@@ -182,6 +193,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
     </select>
   </div>
   <div class="list" id="list"></div>
+  <div class="ver">Dépannages EP · version 2 du 22/10/2026</div>
 </div>
 
 <div class="fab"><button class="primary" id="btnNew" type="button">Nouveau dépannage</button></div>
@@ -360,6 +372,17 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
         <div class="actions"><button type="button" id="delNo">Annuler</button><button type="button" class="danger" id="delYes">Supprimer</button></div>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="sheet" id="todoSheet" hidden>
+  <div class="wrap">
+    <div class="sheet-head"><h2>À faire : tournée de nuit</h2><button type="button" id="todoClose">Fermer</button></div>
+    <div class="stack" style="display:flex;flex-direction:column;gap:12px">
+      <button type="button" id="todoSort">Trier par distance (ma position)</button>
+      <div class="hint" id="todoHint"></div>
+      <div class="tlist" id="todoList"></div>
+    </div>
   </div>
 </div>
 
@@ -566,6 +589,48 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
   }
   $('btnSugYes').addEventListener('click',()=>{const p=nightOpen.find(x=>x.id===sugId);if(p)linkNight(p);});
   $('btnSugNo').addEventListener('click',()=>{if(sugId)sugDismissed.add(sugId);$('nightSug').hidden=true;});
+
+  // ---------- écran « À faire » ----------
+  let todo=[], todoHere=null;
+  function nightLong(n){const [y,m,d]=n.split('-').map(Number);const a=new Date(y,m-1,d),b=new Date(y,m-1,d+1);
+    return 'Nuit du '+a.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit'})+' au '+b.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'2-digit'});}
+  async function refreshTodo(){
+    const all=await nightAll();
+    todo=(all||[]).filter(p=>!p.depanne);
+    $('btnTodo').hidden=!todo.length; $('todoN').textContent=todo.length;
+    if(!$('todoSheet').hidden) renderTodo();
+  }
+  function renderTodo(){
+    const box=$('todoList');
+    if(!todo.length){box.innerHTML='<div class="empty"><h2>Rien à faire</h2><div>Tous les points de la tournée de nuit sont dépannés.</div></div>';return;}
+    const itemHtml=(p,d)=>'<div class="titem"><div class="tt '+esc(p.type)+'">'+esc(p.type==='plusieurs'&&p.nombre?p.nombre+' lampes HS':NTYPES[p.type]||'')+'</div>'+
+      '<div>'+esc(p.adresse||'Adresse inconnue')+(d!=null?' · <b>à '+(d<1000?Math.round(d)+' m':(d/1000).toFixed(1)+' km')+'</b>':'')+'</div>'+
+      (p.remarque?'<div class="addr">'+esc(p.remarque)+'</div>':'')+
+      '<div class="acts">'+(typeof p.lat==='number'?'<a class="btn" target="_blank" rel="noopener" href="'+esc(mapsUrl(p))+'">Voir sur la carte</a>':'')+
+      '<button type="button" class="primary" data-dep="'+esc(p.id)+'">Dépanner</button></div></div>';
+    if(todoHere){
+      const arr=todo.map(p=>({p,d:typeof p.lat==='number'?distM(todoHere,p):null})).sort((a,b)=>(a.d==null)-(b.d==null)||(a.d||0)-(b.d||0));
+      box.innerHTML='<div class="tnight">Du plus proche au plus loin</div>'+arr.map(x=>itemHtml(x.p,x.d)).join('');
+      return;
+    }
+    const g=new Map(); todo.forEach(p=>{if(!g.has(p.nuit))g.set(p.nuit,[]);g.get(p.nuit).push(p);});
+    box.innerHTML=Array.from(g.keys()).sort().reverse().map(n=>{const arr=g.get(n).sort((a,b)=>(a.ordre||0)-(b.ordre||0));
+      return '<div class="tlist"><div class="tnight">'+esc(nightLong(n))+' · '+arr.length+' point'+(arr.length>1?'s':'')+'</div>'+arr.map(p=>itemHtml(p,null)).join('')+'</div>';}).join('');
+  }
+  $('btnTodo').addEventListener('click',async()=>{todoHere=null;$('todoHint').textContent='';await refreshTodo();renderTodo();$('todoSheet').hidden=false;$('todoSheet').scrollTop=0;});
+  $('todoClose').addEventListener('click',()=>{$('todoSheet').hidden=true;});
+  $('todoSort').addEventListener('click',()=>{
+    if(!('geolocation' in navigator)){toast('GPS non disponible');return;}
+    $('todoHint').className='hint'; $('todoHint').textContent='Recherche de ta position...';
+    navigator.geolocation.getCurrentPosition(pos=>{todoHere={lat:pos.coords.latitude,lon:pos.coords.longitude};$('todoHint').textContent='';renderTodo();},
+      ()=>{$('todoHint').className='hint err';$('todoHint').textContent='Position introuvable. Active le GPS et réessaie.';},{enableHighAccuracy:true,timeout:20000,maximumAge:30000});
+  });
+  $('todoList').addEventListener('click',e=>{
+    const b=e.target.closest('[data-dep]'); if(!b)return;
+    const p=todo.find(x=>x.id===b.getAttribute('data-dep')); if(!p)return;
+    $('todoSheet').hidden=true; openForm(null); linkNight(p);
+  });
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshTodo(); if(!$('sheet').hidden&&!editingId) loadNight();}});
 
   // ---------- matériel ----------
   const PARTS=['lampe','ballast','amorceur','boitier','luminaire','cable','crosse','autre'];
@@ -874,7 +939,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
         });
         nmsg=ok?(data.resultat==='repare'?' · point de la tournée marqué dépanné':' · point de la tournée laissé à dépanner'):' · point de la tournée introuvable';
       }
-      closeForm(); render(); toast('Dépannage enregistré'+nmsg); markDirty();
+      closeForm(); render(); toast('Dépannage enregistré'+nmsg); markDirty(); refreshTodo();
       if(data.adressePending) processPending();
     }catch(err){
       formErr(err&&err.name==='QuotaExceededError'?"Le téléphone n'a plus de place. Libère de l'espace puis réessaie.":"Échec de l'enregistrement sur le téléphone. Réessaie.");
@@ -889,7 +954,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
       await tx(['depannages','photos'],'readwrite',t=>{t.objectStore('depannages').delete(a.id);(a.photos||[]).forEach(id=>t.objectStore('photos').delete(id));});
       (a.photos||[]).forEach(dropUrl); items=items.filter(x=>x.id!==a.id);
       if(a.pointNuit) await nightUpdate(a.pointNuit.id,p=>{if(p.depanne&&p.depanne.depannageId===a.id)p.depanne=null;});
-      closeForm(); render(); toast('Dépannage supprimé'); markDirty();
+      closeForm(); render(); toast('Dépannage supprimé'); markDirty(); refreshTodo();
     }catch(e){formErr('Échec de la suppression. Réessaie.');}
   });
 
@@ -1012,7 +1077,7 @@ label.chk input{width:22px;height:22px;min-height:0;accent-color:var(--accent);m
     try{
       idb=await openDb(); await loadAll(); render(); lastBackupText();
       try{ if(navigator.storage&&navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
-      processPending();
+      processPending(); refreshTodo();
     }catch(e){
       const s=$('status'); s.hidden=false; s.className='notice warn';
       s.textContent="Impossible d'ouvrir l'enregistrement sur ce téléphone. Ouvre l'appli dans Chrome (pas en navigation privée).";
